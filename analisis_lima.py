@@ -94,7 +94,7 @@ def main():
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
 
     # Cargar GeoJSON (ya preparado previamente)
-    RUTA_GEOJSON = "lima_distritos.geojson"
+    RUTA_GEOJSON = "data/lima_distritos.geojson"
     gdf_lima = gpd.read_file(RUTA_GEOJSON)
 
     # Selector de año
