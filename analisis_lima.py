@@ -1,12 +1,13 @@
-# analisis_lima.py
+# análisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
+import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
 
 # ---------------- CONFIGURACIÓN ----------------
-st.set_page_config(layout="wide", page_title="📊 Análisis Económico Lima")
+st.set_page_config(layout="wide")
 st.title('📊 Análisis Económico de Grandes Empresas Manufactureras en Lima (2022–2024)')
 
 # ---------------- UTILIDADES ----------------
@@ -43,7 +44,7 @@ def main():
     ])
 
     # --- 2. Selector de provincias ---
-    all_provinces = sorted(combined_df['provincia'].unique())
+    all_provinces = combined_df['provincia'].unique().tolist()
     selected_provinces = st.multiselect(
         '📍 Selecciona las provincias a visualizar',
         all_provinces,
@@ -54,6 +55,7 @@ def main():
     # --- 3. Gráfico de dispersión interactivo ---
     st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
     promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
+
     fig_scatter = px.scatter(
         promedios,
         x="trabajador",
@@ -62,8 +64,7 @@ def main():
         color="año",
         hover_name="provincia",
         labels={"venta_prom": "Venta Promedio (S/)", "trabajador": "Trabajadores"},
-        title="Relación entre Venta, Trabajadores y Experiencia",
-        template="plotly_white"
+        title="Relación entre Venta, Trabajadores y Experiencia"
     )
     st.plotly_chart(fig_scatter, use_container_width=True)
 
@@ -85,23 +86,26 @@ def main():
         color="año",
         barmode="group",
         labels={"venta_prom": "Ventas (S/)", "provincia": "Provincia"},
-        title=titulo,
-        template="plotly_white"
+        title=titulo
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
-    
-    # Cargar GeoJSON desde GitHub
-    RUTA_GEOJSON = "https://raw.githubusercontent.com/usuario/repositorio/main/data/lima_distritos.geojson"
-    gdf_lima = gpd.read_file(RUTA_GEOJSON)
+
+    # Leer GeoJSON directamente desde GitHub
+    GEOJSON_URL = "https://raw.githubusercontent.com/usuario/repo/main/data/lima_distritos.geojson"
+    try:
+        gdf_lima = gpd.read_file(GEOJSON_URL)
+    except Exception as e:
+        st.error(f"No se pudo cargar el GeoJSON: {e}")
+        st.stop()
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
     df_year = combined_df[combined_df['año'] == year_selected]
 
-    # Normalizar texto
+    # Normalizar nombres de distrito
     df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
     gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
 
@@ -110,19 +114,18 @@ def main():
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge
+    # Merge con GeoDataFrame
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
     merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-    # Filtro mínimo para mapa
+    # Aplicar umbral mínimo para el mapa
     UMBRAL = 0.5  # millones
     merged_filtrado = merged.copy()
     merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
 
     # Plot mapa
-    import matplotlib.pyplot as plt
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base gris
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
     merged_filtrado.plot(
         column="venta_millones",
         cmap="OrRd",
