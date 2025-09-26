@@ -6,6 +6,14 @@ import plotly.express as px
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Análisis Económico Lima", layout="wide")
 
+# --- Función para cargar datos ---------
+def load_data(path):
+    try:
+        return pd.read_csv(path, sep="|")  # ajusta el separador si no es "|"
+    except Exception as e:
+        st.error(f"Error al cargar {path}: {e}")
+        return pd.DataFrame()
+
 # ---------------- DATOS -----------------
 # Rutas a los archivos
 df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
