@@ -4,7 +4,6 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
-import os
 
 # ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(layout="wide")
@@ -21,9 +20,9 @@ def load_data(filepath):
 
 def prepare_df(df, year):
     """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
-    subset = df[df['departamento'].str.upper() == 'LIMA'][
-        ['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']
-    ].copy()
+    subset = df[df['departamento'].str.upper() == 'LIMA'][[
+        'provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia'
+    ]].copy()
     subset['año'] = year
     return subset
 
@@ -34,6 +33,7 @@ def main():
     df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
     df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
     RUTA_GEOJSON = "data/lima_distritos.geojson"
+
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
 
@@ -54,7 +54,7 @@ def main():
 
     # --- 3. Gráfico de dispersión interactivo ---
     st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
-    promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
+    promedios = filtered_df.groupby(['provincia', 'año'])[['venta_prom','trabajador','experiencia']].mean().reset_index()
 
     fig_scatter = px.scatter(
         promedios,
@@ -92,30 +92,25 @@ def main():
 
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
-
-    # Cargar GeoJSON (ya preparado previamente)
-    RUTA_GEOJSON = "data/lima_distritos.geojson"
     gdf_lima = gpd.read_file(RUTA_GEOJSON)
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
+    df_year = combined_df[combined_df['año'] == year_selected].copy()
 
-    df_year = combined_df[combined_df['año'] == year_selected]
-
-    # Normalizar texto
-    df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
-    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    # Normalizar nombres de distritos
+    df_year["distrito_norm"] = df_year["distrito"].astype(str).str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].astype(str).str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
 
     # Ventas por distrito
     ventas_df = df_year.groupby("distrito_norm")["venta_prom"].sum().reset_index()
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge
+    # Merge con GeoDataFrame
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
-    merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-    # Filtro mínimo para mapa
+    # No llenar con 0, para no afectar escala
     UMBRAL = 0.5  # millones
     merged_filtrado = merged.copy()
     merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
