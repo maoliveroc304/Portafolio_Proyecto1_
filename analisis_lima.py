@@ -4,6 +4,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
+import os
 
 # ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(layout="wide")
@@ -20,19 +21,18 @@ def load_data(filepath):
 
 def prepare_df(df, year):
     """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
-    subset = df[df['departamento'].str.upper() == 'LIMA'][[
-        'provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia'
-    ]].copy()
+    subset = df[df['departamento'].str.upper() == 'LIMA'][
+        ['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']
+    ].copy()
     subset['año'] = year
     return subset
 
 # ---------------- MAIN ----------------
 def main():
     # --- 1. Cargar datos ---
-    df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
-    df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
-    df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
-    RUTA_GEOJSON = "data/lima_distritos.geojson"
+    df_2022 = load_data('GRAN_EMPRESA_2022_MANUFACTURA.csv')
+    df_2023 = load_data('GRAN_EMPRESA_2023_MANUFACTURA.csv')
+    df_2024 = load_data('GRAN_EMPRESA_2024_MANUFACTURA.csv')
 
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
@@ -92,10 +92,14 @@ def main():
 
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
+
+    # Cargar GeoJSON (ya preparado previamente)
+    RUTA_GEOJSON = "lima_distritos.geojson"
     gdf_lima = gpd.read_file(RUTA_GEOJSON)
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
+
     df_year = combined_df[combined_df['año'] == year_selected]
 
     # Normalizar texto
