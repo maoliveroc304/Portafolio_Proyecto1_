@@ -1,191 +1,144 @@
-# -----------------------------
-# LIBRERÍAS
-# -----------------------------
+# análisis_lima.py
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import geopandas as gpd
-import numpy as np
+import matplotlib.pyplot as plt
+import plotly.express as px
+import unidecode
 import os
 
-# -----------------------------
-# CONFIGURACIÓN
-# -----------------------------
+# ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(layout="wide")
-st.title('Análisis del Desempeño Económico de Grandes Empresas Manufactureras en Lima (2022-2024)')
+st.title('📊 Análisis Económico de Grandes Empresas Manufactureras en Lima (2022–2024)')
 
-# -----------------------------
-# FUNCIONES AUXILIARES
-# -----------------------------
+# ---------------- UTILIDADES ----------------
 @st.cache_data
 def load_data(filepath):
     try:
         return pd.read_csv(filepath, sep='|')
-    except FileNotFoundError:
-        st.error(f"Archivo no encontrado: {filepath}")
     except Exception as e:
         st.error(f"Error al cargar {filepath}: {e}")
-    return None
+        return None
 
 def prepare_df(df, year):
     """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
-    subset = df[df['departamento'] == 'LIMA'][
-        ['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']
-    ].copy()
+    subset = df[df['departamento'].str.upper() == 'LIMA'][[
+        'provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia'
+    ]].copy()
     subset['año'] = year
     return subset
 
-def normalize_text(s):
-    """Normaliza texto para evitar problemas de tildes y mayúsculas."""
-    import unicodedata
-    if isinstance(s, str):
-        s = unicodedata.normalize("NFKD", s)
-        return "".join([c for c in s if not unicodedata.combining(c)]).upper().strip()
-    return s
-
-# -----------------------------
-# GRÁFICOS
-# -----------------------------
-def plot_scatter(df):
-    """Gráfico de dispersión con Plotly."""
-    import plotly.express as px
-    st.subheader("📊 Relación entre Venta Promedio, Trabajadores y Experiencia")
-    promedios = df.groupby(['provincia', 'año'])[['venta_prom', 'trabajador', 'experiencia']].mean().reset_index()
-    fig = px.scatter(
-        promedios,
-        x="trabajador",
-        y="venta_prom",
-        color="año",
-        symbol="año",
-        size="experiencia",
-        hover_data=["provincia"],
-        labels={
-            "trabajador": "Promedio de Trabajadores",
-            "venta_prom": "Promedio de Ventas (S/.)"
-        },
-        title="Relación entre Venta, Trabajadores y Experiencia"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-def plot_bars(df):
-    """Gráfico de barras comparativo con Plotly."""
-    import plotly.express as px
-    st.subheader("📊 Comparación de Venta Promedio por Provincia")
-    ventas = df.groupby(['provincia', 'año'])['venta_prom'].mean().reset_index()
-    ventas["venta_millones"] = ventas["venta_prom"] / 1_000_000
-    fig = px.bar(
-        ventas,
-        x="provincia",
-        y="venta_millones",
-        color="año",
-        barmode="group",
-        labels={"venta_millones": "Venta Promedio (Millones S/.)"},
-        title="Comparación de Venta Promedio por Provincia"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-def plot_heatmap(df):
-    """Mapa de calor (heatmap) por provincia."""
-    st.subheader("📊 Ventas Totales por Provincia")
-    ventas_totales = df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
-    ventas_totales["venta_millones"] = ventas_totales["venta_prom"] / 1_000_000
-    pivot = ventas_totales.pivot(index="provincia", columns="año", values="venta_millones")
-    fig, ax = plt.subplots(figsize=(10, 7))
-    sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
-    ax.set_title("Ventas Totales por Provincia (Millones de S/.)")
-    ax.set_xlabel("Año")
-    ax.set_ylabel("Provincia")
-    st.pyplot(fig)
-
-def plot_provincial_map_static(gdf, df, year_selected, provincias_sel):
-    """Mapa provincial de ventas en Lima con distritos sin datos en gris."""
-    st.subheader(f"🗺️ Mapa provincial de ventas en Lima - {year_selected}")
-
-    # Filtrar solo LIMA en shapefile
-    gdf_lima = gdf[gdf["DEPARTAMEN"].apply(normalize_text) == "LIMA"].copy()
-    gdf_lima["PROV_APP"] = gdf_lima["PROVINCIA"].apply(normalize_text)
-
-    # Filtrar dataset por año y provincias seleccionadas
-    df_year = df[(df["año"] == year_selected) & (df["provincia"].isin(provincias_sel))].copy()
-    df_year = df_year.groupby("provincia")["venta_prom"].sum().reset_index()
-    df_year["venta_millones"] = df_year["venta_prom"] / 1_000_000
-    df_year["provincia"] = df_year["provincia"].apply(normalize_text)
-
-    # Merge shapefile + ventas
-    merged = gdf_lima.merge(df_year, left_on="PROV_APP", right_on="provincia", how="left")
-    merged["venta_millones"] = merged["venta_millones"].fillna(0)
-
-    # Definir un umbral mínimo de ventas (ejemplo: 0.1 millones de S/)
-    UMBRAL = 0.1
-
-    # Crear columna para pintar (NaN si no supera el umbral → gris claro)
-    merged["venta_plot"] = merged["venta_millones"].apply(lambda x: x if x >= UMBRAL else np.nan)
-
-    # Dibujar mapa
-    fig, ax = plt.subplots(figsize=(10, 8))
-    merged.plot(
-        column="venta_plot",
-        cmap="OrRd",
-        linewidth=0.8,
-        ax=ax,
-        edgecolor="0.8",
-        legend=True,
-        legend_kwds={"label": "Ventas (Millones de S/.)", "orientation": "vertical"},
-        missing_kwds={
-            "color": "#f0f0f0",   # gris claro
-            "edgecolor": "0.8",
-            "label": "Sin datos"
-        }
-    )
-    ax.axis("off")
-    st.pyplot(fig)
-
-# -----------------------------
-# MAIN
-# -----------------------------
+# ---------------- MAIN ----------------
 def main():
-    # Cargar datos (2022, 2023, 2024)
-    df_2022 = load_data('GRAN_EMPRESA_2022_MANUFACTURA.csv')
-    df_2023 = load_data('GRAN_EMPRESA_2023_MANUFACTURA.csv')
-    df_2024 = load_data('GRAN_EMPRESA_2024_MANUFACTURA.csv')
+    base_path = os.path.dirname(__file__)  # directorio del script
+    data_path = os.path.join(base_path, "data")
+
+    # --- 1. Cargar datos ---
+    df_2022 = load_data(os.path.join(data_path, "GRAN_EMPRESA_2022_MANUFACTURA.csv"))
+    df_2023 = load_data(os.path.join(data_path, "GRAN_EMPRESA_2023_MANUFACTURA.csv"))
+    df_2024 = load_data(os.path.join(data_path, "GRAN_EMPRESA_2024_MANUFACTURA.csv"))
 
     if df_2022 is None or df_2023 is None or df_2024 is None:
-        st.error("No se pudieron cargar los datos. Verifica las rutas de los archivos.")
-        return
+        st.stop()
 
-    # Preparar datos combinados
     combined_df = pd.concat([
         prepare_df(df_2022, 2022),
         prepare_df(df_2023, 2023),
         prepare_df(df_2024, 2024)
     ])
 
-    # Filtro de provincias
-    all_provinces = combined_df["provincia"].unique().tolist()
+    # --- 2. Selector de provincias ---
+    all_provinces = combined_df['provincia'].unique().tolist()
     selected_provinces = st.multiselect(
-        "Selecciona las provincias a visualizar",
+        '📍 Selecciona las provincias a visualizar',
         all_provinces,
         default=all_provinces
     )
+    filtered_df = combined_df[combined_df['provincia'].isin(selected_provinces)]
 
-    filtered_df = combined_df[combined_df["provincia"].isin(selected_provinces)]
+    # --- 3. Gráfico de dispersión interactivo ---
+    st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
+    promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
 
-    # Selector de año para el mapa
-    year_selected = st.selectbox("Selecciona el año para el mapa", [2022, 2023, 2024])
+    fig_scatter = px.scatter(
+        promedios,
+        x="trabajador",
+        y="venta_prom",
+        size="experiencia",
+        color="año",
+        hover_name="provincia",
+        labels={"venta_prom": "Venta Promedio (S/)", "trabajador": "Trabajadores"},
+        title="Relación entre Venta, Trabajadores y Experiencia"
+    )
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
-    # Dibujar gráficos interactivos
-    plot_scatter(filtered_df)
-    plot_bars(filtered_df)
-    plot_heatmap(filtered_df)
+    # --- 4. Comparación de ventas promedio/totales ---
+    st.header("📊 Comparación de Venta por Provincia")
+    modo = st.radio("Selecciona el tipo de análisis:", ["Promedio", "Total"], horizontal=True)
 
-    # Cargar shapefile
-    carpeta = "Datos Geopandas"
-    shapefile = os.path.join(carpeta, "Distrital INEI 2023 geogpsperu SuyoPomalia.shp")
-    gdf = gpd.read_file(shapefile, encoding="utf-8")
+    if modo == "Promedio":
+        ventas = filtered_df.groupby(['provincia', 'año'])['venta_prom'].mean().reset_index()
+        titulo = "Comparación de Venta Promedio por Provincia (2022–2024)"
+    else:
+        ventas = filtered_df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
+        titulo = "Comparación de Ventas Totales por Provincia (2022–2024)"
 
-    # Dibujar mapa estático
-    plot_provincial_map_static(gdf, combined_df, year_selected, selected_provinces)
+    fig_bar = px.bar(
+        ventas,
+        x="provincia",
+        y="venta_prom",
+        color="año",
+        barmode="group",
+        labels={"venta_prom": "Ventas (S/)", "provincia": "Provincia"},
+        title=titulo
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    # --- 5. Mapa de calor distrital ---
+    st.header("🗺️ Mapa de calor distrital de ventas en Lima")
+
+    RUTA_GEOJSON = os.path.join(data_path, "lima_distritos.geojson")
+    if not os.path.exists(RUTA_GEOJSON):
+        st.error(f"No se encuentra el archivo: {RUTA_GEOJSON}")
+        st.stop()
+
+    gdf_lima = gpd.read_file(RUTA_GEOJSON)
+
+    # Selector de año
+    year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
+    df_year = combined_df[combined_df['año'] == year_selected]
+
+    # Normalizar texto
+    df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+
+    # Ventas por distrito
+    ventas_df = df_year.groupby("distrito_norm")["venta_prom"].sum().reset_index()
+    ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
+    ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
+
+    # Merge
+    merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
+    merged["venta_millones"] = merged["venta_millones"].fillna(0)
+
+    # Filtro mínimo para mapa
+    UMBRAL = 0.5  # millones
+    merged_filtrado = merged.copy()
+    merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
+
+    # Plot mapa
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
+    merged_filtrado.plot(
+        column="venta_millones",
+        cmap="OrRd",
+        linewidth=0.8,
+        ax=ax,
+        edgecolor="0.8",
+        legend=True
+    )
+    ax.axis("off")
+    st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
