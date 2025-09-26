@@ -48,13 +48,6 @@ with col2:
 
     st.subheader("ChatBot — Dialogflow Messenger")
     st.write("Si la integración pública está habilitada, inyectamos df-messenger aquí.")
-    df_html = f'''
-    <df-messenger
-      intent="WELCOME"
-      chat-title="{CHAT_TITLE}"
-      agent-id="{DIALOGFLOW_AGENT_ID}"
-      language-code="es"
-    ></df-messenger>
     <script src="https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1"></script>
 <df-messenger
   chat-title="Chat Bot de Prueba"
