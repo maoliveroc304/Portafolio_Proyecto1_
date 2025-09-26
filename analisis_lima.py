@@ -1,10 +1,10 @@
+# analisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
-import os
 
 # ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(layout="wide")
@@ -19,21 +19,29 @@ def load_data(filepath):
         st.error(f"Error al cargar {filepath}: {e}")
         return None
 
+@st.cache_data
+def load_geojson(url):
+    try:
+        return gpd.read_file(url)
+    except Exception as e:
+        st.error(f"No se pudo cargar GeoJSON: {e}")
+        return None
+
 def prepare_df(df, year):
     """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
-    subset = df[df['departamento'].str.upper() == 'LIMA'][
-        ['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']
-    ].copy()
+    subset = df[df['departamento'].str.upper() == 'LIMA'][[
+        'provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia'
+    ]].copy()
     subset['año'] = year
     return subset
 
 # ---------------- MAIN ----------------
 def main():
     # --- 1. Cargar datos ---
-    df_2022 = load_data('GRAN_EMPRESA_2022_MANUFACTURA.csv')
-    df_2023 = load_data('GRAN_EMPRESA_2023_MANUFACTURA.csv')
-    df_2024 = load_data('GRAN_EMPRESA_2024_MANUFACTURA.csv')
-
+    df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
+    df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
+    df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
+    
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
 
@@ -93,13 +101,14 @@ def main():
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
 
-    # Cargar GeoJSON (ya preparado previamente)
-    RUTA_GEOJSON = "data/lima_distritos.geojson"
-    gdf_lima = gpd.read_file(RUTA_GEOJSON)
+    # GeoJSON desde GitHub
+    URL_GEOJSON = "https://github.com/maoliveroc304/Portafolio_Proyecto1_/tree/main/data/lima_distritos.geojson"
+    gdf_lima = load_geojson(URL_GEOJSON)
+    if gdf_lima is None:
+        st.stop()
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
-
     df_year = combined_df[combined_df['año'] == year_selected]
 
     # Normalizar texto
@@ -111,20 +120,16 @@ def main():
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge
+    # Merge y filtro mínimo
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
-    merged["venta_millones"] = merged["venta_millones"].fillna(0)
-
-    # Filtro mínimo para mapa
-    UMBRAL = 0.5  # millones
-    merged_filtrado = merged.copy()
-    merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
+    UMBRAL = 0.5
+    merged["venta_millones_filtrada"] = merged["venta_millones"].apply(lambda x: x if x >= UMBRAL else None)
 
     # Plot mapa
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
-    merged_filtrado.plot(
-        column="venta_millones",
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base distritos
+    merged.plot(
+        column="venta_millones_filtrada",
         cmap="OrRd",
         linewidth=0.8,
         ax=ax,
