@@ -5,6 +5,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
+import os
 
 # ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(layout="wide")
@@ -13,6 +14,7 @@ st.title('📊 Análisis Económico de Grandes Empresas Manufactureras en Lima (
 # ---------------- UTILIDADES ----------------
 @st.cache_data
 def load_data(filepath):
+    """Carga CSV y maneja errores"""
     try:
         return pd.read_csv(filepath, sep='|')
     except Exception as e:
@@ -30,9 +32,11 @@ def prepare_df(df, year):
 # ---------------- MAIN ----------------
 def main():
     # --- 1. Cargar datos ---
-    df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
-    df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
-    df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
+    base_path = os.path.dirname(__file__)
+    df_2022 = load_data(os.path.join(base_path, "data", "GRAN_EMPRESA_2022_MANUFACTURA.csv"))
+    df_2023 = load_data(os.path.join(base_path, "data", "GRAN_EMPRESA_2023_MANUFACTURA.csv"))
+    df_2024 = load_data(os.path.join(base_path, "data", "GRAN_EMPRESA_2024_MANUFACTURA.csv"))
+    RUTA_GEOJSON = os.path.join(base_path, "data", "lima_distritos.geojson")
 
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
@@ -93,10 +97,8 @@ def main():
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
 
-    # Leer GeoJSON directamente desde GitHub
-    GEOJSON_URL = "https://raw.githubusercontent.com/usuario/repo/main/data/lima_distritos.geojson"
     try:
-        gdf_lima = gpd.read_file(GEOJSON_URL)
+        gdf_lima = gpd.read_file(RUTA_GEOJSON)
     except Exception as e:
         st.error(f"No se pudo cargar el GeoJSON: {e}")
         st.stop()
@@ -105,7 +107,7 @@ def main():
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
     df_year = combined_df[combined_df['año'] == year_selected]
 
-    # Normalizar nombres de distrito
+    # Normalizar texto
     df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
     gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
 
@@ -114,11 +116,11 @@ def main():
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge con GeoDataFrame
+    # Merge
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
     merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-    # Aplicar umbral mínimo para el mapa
+    # Filtro mínimo para mapa
     UMBRAL = 0.5  # millones
     merged_filtrado = merged.copy()
     merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
