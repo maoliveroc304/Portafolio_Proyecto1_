@@ -57,8 +57,6 @@ df_html = f'''
   language-code="es"
 ></df-messenger>
 '''
-# <- aquí cierras la f-string
-
 components.html(df_html, height=420)
 
 st.caption("Nota: para embeds con tokens/ACL usa un backend seguro. Streamlit puede manejar lógica server-side, pero evita exponer secretos en el frontend.")
