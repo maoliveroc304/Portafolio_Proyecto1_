@@ -48,13 +48,14 @@ with col2:
 
     st.subheader("ChatBot — Dialogflow Messenger")
     st.write("Si la integración pública está habilitada, inyectamos df-messenger aquí.")
-    df_html = f'''
+df_html = f'''
     <script src="https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1"></script>
-<df-messenger
-  intent="WELCOME"
-  chat-title="Antiqpa_ChatBot"
-  agent-id="372a5eeb-31b9-4777-bfd4-a9a2af72e162"
-  language-code="es"
+    <df-messenger
+      intent="WELCOME"
+      chat-title="Antiqpa_ChatBot"
+      agent-id="372a5eeb-31b9-4777-bfd4-a9a2af72e162"
+      language-code="es"
+    ></df-messenger>
 '''
 ></df-messenger>
     components.html(df_html, height=420)
