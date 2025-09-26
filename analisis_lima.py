@@ -7,11 +7,11 @@ import plotly.express as px
 st.set_page_config(page_title="Análisis Económico Lima", layout="wide")
 
 # ---------------- DATOS -----------------
-# Rutas a tus archivos (ajusta según tu estructura)
-RUTA_VENTAS_2022 = "Datos Geopandas/ventas_2022.csv"
-RUTA_VENTAS_2023 = "Datos Geopandas/ventas_2023.csv"
-RUTA_VENTAS_2024 = "Datos Geopandas/ventas_2024.csv"
-RUTA_SHAPEFILE = "Datos Geopandas/lima_distritos.shp"
+# Rutas a los archivos
+df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
+df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
+df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
+RUTA_GEOJSON = "data/lima_distritos.geojson"
 
 RUTA_SHAPEFILE = "lima_distritos.geojson"
 gdf_lima = gpd.read_file(RUTA_SHAPEFILE)
