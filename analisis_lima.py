@@ -54,7 +54,7 @@ def main():
 
     # --- 3. Gráfico de dispersión interactivo ---
     st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
-    promedios = filtered_df.groupby(['provincia', 'año'])[['venta_prom','trabajador','experiencia']].mean().reset_index()
+    promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
 
     fig_scatter = px.scatter(
         promedios,
@@ -96,21 +96,22 @@ def main():
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
-    df_year = combined_df[combined_df['año'] == year_selected].copy()
+    df_year = combined_df[combined_df['año'] == year_selected]
 
-    # Normalizar nombres de distritos
-    df_year["distrito_norm"] = df_year["distrito"].astype(str).str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
-    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].astype(str).str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    # Normalizar texto
+    df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
 
     # Ventas por distrito
     ventas_df = df_year.groupby("distrito_norm")["venta_prom"].sum().reset_index()
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge con GeoDataFrame
+    # Merge
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
+    merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-    # No llenar con 0, para no afectar escala
+    # Filtro mínimo para mapa
     UMBRAL = 0.5  # millones
     merged_filtrado = merged.copy()
     merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
