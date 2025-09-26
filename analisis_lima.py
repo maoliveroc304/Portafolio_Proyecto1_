@@ -1,119 +1,138 @@
-# analisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import plotly.express as px
+import unidecode
+import os
 
-# ---------------- CONFIG ----------------
-RUTA_SHAPEFILE = "data/Distrital_INEI_2023_geogpsperu_SuyoPomalia.shp"
-RUTA_GEOJSON = "data/lima_distritos.geojson"
+# ---------------- CONFIGURACIÓN ----------------
+st.set_page_config(layout="wide")
+st.title('📊 Análisis Económico de Grandes Empresas Manufactureras en Lima (2022–2024)')
 
-# Archivos CSV
-RUTA_VENTAS_2022 = "data/GRAN_EMPRESA_2022_MANUFACTURA.csv"
-RUTA_VENTAS_2023 = "data/GRAN_EMPRESA_2023_MANUFACTURA.csv"
-RUTA_VENTAS_2024 = "data/GRAN_EMPRESA_2024_MANUFACTURA.csv"
-
-# ---------------- FUNCIONES ----------------
+# ---------------- UTILIDADES ----------------
 @st.cache_data
-def load_data(path):
-    return pd.read_csv(path)
-
-@st.cache_data
-def load_geodata():
+def load_data(filepath):
     try:
-        return gpd.read_file(RUTA_GEOJSON)
-    except Exception:
-        return gpd.read_file(RUTA_SHAPEFILE)
+        return pd.read_csv(filepath, sep='|')
+    except Exception as e:
+        st.error(f"Error al cargar {filepath}: {e}")
+        return None
 
-# ---------------- DATA ----------------
-# Cargar shapefile o geojson
-gdf = load_geodata()
+def prepare_df(df, year):
+    """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
+    subset = df[df['departamento'].str.upper() == 'LIMA'][
+        ['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']
+    ].copy()
+    subset['año'] = year
+    return subset
 
-# Asegurar que el nombre de distrito esté en mayúsculas
-if "NOMBDIST" in gdf.columns:
-    gdf["NOMBDIST"] = gdf["NOMBDIST"].str.upper()
-elif "DISTRITO" in gdf.columns:
-    gdf["NOMBDIST"] = gdf["DISTRITO"].str.upper()
+# ---------------- MAIN ----------------
+def main():
+    # --- 1. Cargar datos ---
+    df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
+    df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
+    df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
+    RUTA_GEOJSON = "data/lima_distritos.geojson"
+    if df_2022 is None or df_2023 is None or df_2024 is None:
+        st.stop()
 
-# Filtrar solo Lima
-if "DEPARTAMEN" in gdf.columns:
-    gdf_lima = gdf[gdf["DEPARTAMEN"].str.upper() == "LIMA"]
-else:
-    gdf_lima = gdf  # geojson ya debería estar filtrado a Lima
+    combined_df = pd.concat([
+        prepare_df(df_2022, 2022),
+        prepare_df(df_2023, 2023),
+        prepare_df(df_2024, 2024)
+    ])
 
-# Cargar ventas
-df_2022 = load_data(RUTA_VENTAS_2022)
-df_2023 = load_data(RUTA_VENTAS_2023)
-df_2024 = load_data(RUTA_VENTAS_2024)
+    # --- 2. Selector de provincias ---
+    all_provinces = combined_df['provincia'].unique().tolist()
+    selected_provinces = st.multiselect(
+        '📍 Selecciona las provincias a visualizar',
+        all_provinces,
+        default=all_provinces
+    )
+    filtered_df = combined_df[combined_df['provincia'].isin(selected_provinces)]
 
-# Unificar en un solo DataFrame con columna "año"
-df_2022["año"] = 2022
-df_2023["año"] = 2023
-df_2024["año"] = 2024
-df_all = pd.concat([df_2022, df_2023, df_2024], ignore_index=True)
+    # --- 3. Gráfico de dispersión interactivo ---
+    st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
+    promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
 
-# Normalizar distritos
-df_all["distrito"] = df_all["distrito"].str.upper().str.strip()
+    fig_scatter = px.scatter(
+        promedios,
+        x="trabajador",
+        y="venta_prom",
+        size="experiencia",
+        color="año",
+        hover_name="provincia",
+        labels={"venta_prom": "Venta Promedio (S/)", "trabajador": "Trabajadores"},
+        title="Relación entre Venta, Trabajadores y Experiencia"
+    )
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
-# ---------------- STREAMLIT APP ----------------
-st.set_page_config(page_title="Análisis Lima", layout="wide")
+    # --- 4. Comparación de ventas promedio/totales ---
+    st.header("📊 Comparación de Venta por Provincia")
+    modo = st.radio("Selecciona el tipo de análisis:", ["Promedio", "Total"], horizontal=True)
 
-st.title("📊 Análisis de Ventas en Lima")
-st.write("Mapa de calor distrital + comparación de provincias por año (2022–2024).")
+    if modo == "Promedio":
+        ventas = filtered_df.groupby(['provincia', 'año'])['venta_prom'].mean().reset_index()
+        titulo = "Comparación de Venta Promedio por Provincia (2022–2024)"
+    else:
+        ventas = filtered_df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
+        titulo = "Comparación de Ventas Totales por Provincia (2022–2024)"
 
-# Selector de año
-anio = st.radio("Selecciona el año:", options=sorted(df_all["año"].unique()), horizontal=True)
+    fig_bar = px.bar(
+        ventas,
+        x="provincia",
+        y="venta_prom",
+        color="año",
+        barmode="group",
+        labels={"venta_prom": "Ventas (S/)", "provincia": "Provincia"},
+        title=titulo
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
 
-# Selector de métrica
-metrica = st.selectbox(
-    "Métrica a mostrar:",
-    ["Promedio de ventas", "Total de ventas"]
-)
+    # --- 5. Mapa de calor distrital ---
+    st.header("🗺️ Mapa de calor distrital de ventas en Lima")
 
-# Filtro por año
-df_year = df_all[df_all["año"] == anio]
+    # Cargar GeoJSON (ya preparado previamente)
+    RUTA_GEOJSON = "lima_distritos.geojson"
+    gdf_lima = gpd.read_file(RUTA_GEOJSON)
 
-# Agregar datos por distrito
-if metrica == "Promedio de ventas":
-    df_grouped = df_year.groupby("distrito", as_index=False)["venta_prom"].mean()
-    columna_valor = "venta_prom"
-    titulo_metrica = "Promedio de ventas"
-else:
-    df_grouped = df_year.groupby("distrito", as_index=False)["venta_prom"].sum()
-    columna_valor = "venta_prom"
-    titulo_metrica = "Ventas totales"
+    # Selector de año
+    year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
 
-# Hacer merge con shapefile/geojson
-gdf_merged = gdf_lima.merge(df_grouped, left_on="NOMBDIST", right_on="distrito", how="left")
+    df_year = combined_df[combined_df['año'] == year_selected]
 
-# Plot mapa
-fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-gdf_lima.boundary.plot(ax=ax, linewidth=0.5, color="black")
+    # Normalizar texto
+    df_year["distrito_norm"] = df_year["distrito"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
+    gdf_lima["DISTRITO_NORM"] = gdf_lima["DISTRITO"].str.upper().apply(lambda x: unidecode.unidecode(x.strip()))
 
-# Distritos con datos válidos (filtrar ventas muy bajas para no distorsionar)
-umbral = 10000  # mínimo de ventas para ser considerado en el mapa
-gdf_data = gdf_merged[gdf_merged[columna_valor].notna() & (gdf_merged[columna_valor] > umbral)]
-gdf_data.plot(
-    column=columna_valor,
-    cmap="Reds",
-    linewidth=0.8,
-    ax=ax,
-    edgecolor="0.8",
-    legend=True,
-)
+    # Ventas por distrito
+    ventas_df = df_year.groupby("distrito_norm")["venta_prom"].sum().reset_index()
+    ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
+    ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-# Distritos sin datos o bajo umbral → gris transparente
-gdf_no_data = gdf_merged[gdf_merged[columna_valor].isna() | (gdf_merged[columna_valor] <= umbral)]
-gdf_no_data.plot(ax=ax, color="lightgrey", alpha=0.2, edgecolor="0.7")
+    # Merge
+    merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
+    merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-ax.set_title(f"Mapa de calor de {titulo_metrica} por distrito — {anio}", fontsize=14)
-ax.axis("off")
-st.pyplot(fig)
+    # Filtro mínimo para mapa
+    UMBRAL = 0.5  # millones
+    merged_filtrado = merged.copy()
+    merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
 
-# ---------------- Comparación de provincias ----------------
-df_prov = df_year.groupby("provincia", as_index=False).agg(
-    {columna_valor: "mean" if metrica == "Promedio de ventas" else "sum"}
-)
+    # Plot mapa
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
+    merged_filtrado.plot(
+        column="venta_millones",
+        cmap="OrRd",
+        linewidth=0.8,
+        ax=ax,
+        edgecolor="0.8",
+        legend=True
+    )
+    ax.axis("off")
+    st.pyplot(fig)
 
-st.subheader(f"📊 Comparación de {titulo_metrica} por Provincia — {anio}")
-st.bar_chart(df_prov.set_index("provincia")[columna_valor])
+if __name__ == "__main__":
+    main()
