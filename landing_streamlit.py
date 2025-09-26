@@ -56,7 +56,11 @@ with col2:
       language-code="es"
     ></df-messenger>
     <script src="https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1"></script>
-    '''
+<df-messenger
+  chat-title="Chat Bot de Prueba"
+  agent-id="372a5eeb-31b9-4777-bfd4-a9a2af72e162"
+  language-code="es"
+></df-messenger>
     components.html(df_html, height=420)
 
 st.caption("Nota: para embeds con tokens/ACL usa un backend seguro. Streamlit puede manejar lógica server-side, pero evita exponer secretos en el frontend.")
