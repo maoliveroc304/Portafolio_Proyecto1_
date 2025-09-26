@@ -13,7 +13,7 @@ RUTA_VENTAS_2023 = "Datos Geopandas/ventas_2023.csv"
 RUTA_VENTAS_2024 = "Datos Geopandas/ventas_2024.csv"
 RUTA_SHAPEFILE = "Datos Geopandas/lima_distritos.shp"
 
-# Cargar shapefile de distritos de Lima
+RUTA_SHAPEFILE = "lima_distritos.geojson"
 gdf_lima = gpd.read_file(RUTA_SHAPEFILE)
 
 # Cargar datasets de ventas
