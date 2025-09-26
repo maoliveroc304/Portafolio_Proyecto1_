@@ -1,4 +1,4 @@
-# analisis_lima.py
+# análisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
@@ -44,7 +44,7 @@ def main():
     
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
-
+    
     combined_df = pd.concat([
         prepare_df(df_2022, 2022),
         prepare_df(df_2023, 2023),
@@ -63,7 +63,7 @@ def main():
     # --- 3. Gráfico de dispersión interactivo ---
     st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
     promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
-
+    
     fig_scatter = px.scatter(
         promedios,
         x="trabajador",
@@ -101,8 +101,8 @@ def main():
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
 
-    # GeoJSON desde GitHub
-    URL_GEOJSON = "https://github.com/maoliveroc304/Portafolio_Proyecto1_/tree/main/data/lima_distritos.geojson"
+    # URL del GeoJSON en GitHub
+    URL_GEOJSON = "https://raw.githubusercontent.com/usuario/repositorio/main/data/lima_distritos.geojson"
     gdf_lima = load_geojson(URL_GEOJSON)
     if gdf_lima is None:
         st.stop()
@@ -120,16 +120,20 @@ def main():
     ventas_df.rename(columns={"distrito_norm": "DISTRITO_NORM", "venta_prom": "venta_millones"}, inplace=True)
     ventas_df["venta_millones"] = ventas_df["venta_millones"] / 1_000_000  # en millones
 
-    # Merge y filtro mínimo
+    # Merge
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
-    UMBRAL = 0.5
-    merged["venta_millones_filtrada"] = merged["venta_millones"].apply(lambda x: x if x >= UMBRAL else None)
+    merged["venta_millones"] = merged["venta_millones"].fillna(0)
+
+    # Filtrar mínimo para mapa
+    UMBRAL = 0.5  # millones
+    merged_filtrado = merged.copy()
+    merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
 
     # Plot mapa
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base distritos
-    merged.plot(
-        column="venta_millones_filtrada",
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
+    merged_filtrado.plot(
+        column="venta_millones",
         cmap="OrRd",
         linewidth=0.8,
         ax=ax,
@@ -138,6 +142,7 @@ def main():
     )
     ax.axis("off")
     st.pyplot(fig)
+
 
 if __name__ == "__main__":
     main()
