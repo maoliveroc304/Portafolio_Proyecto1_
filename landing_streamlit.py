@@ -46,9 +46,11 @@ with col2:
         components.iframe(meta['url'], height=260)
         st.divider()
 
-    st.subheader("ChatBot — Dialogflow Messenger")
-    st.write("Si la integración pública está habilitada, inyectamos df-messenger aquí.")
-df_html = f'''
+# ⚡ ChatBot flotante (overlay)
+st.subheader("ChatBot — Dialogflow Messenger")
+st.write("El widget aparecerá como burbuja flotante en la esquina inferior derecha.")
+
+df_html = """
 <script src="https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1"></script>
 <df-messenger
   intent="WELCOME"
@@ -56,7 +58,9 @@ df_html = f'''
   agent-id="372a5eeb-31b9-4777-bfd4-a9a2af72e162"
   language-code="es"
 ></df-messenger>
-'''
-components.html(df_html, height=420)
+"""
+
+# importantísimo: usar `components.html` pero con height pequeño (o 0)
+components.html(df_html, height=0, width=0)
 
 st.caption("Nota: para embeds con tokens/ACL usa un backend seguro. Streamlit puede manejar lógica server-side, pero evita exponer secretos en el frontend.")
