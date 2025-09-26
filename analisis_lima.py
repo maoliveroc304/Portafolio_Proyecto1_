@@ -1,126 +1,102 @@
+# analisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="Análisis Económico Lima", layout="wide")
+RUTA_SHAPEFILE = "data/Distrital_INEI_2023_geogpsperu_SuyoPomalia.shp"
 
-# --- Función para cargar datos ---------
+# Archivos CSV
+RUTA_VENTAS_2022 = "data/GRAN_EMPRESA_2022_MANUFACTURA.csv"
+RUTA_VENTAS_2023 = "data/GRAN_EMPRESA_2023_MANUFACTURA.csv"
+RUTA_VENTAS_2024 = "data/GRAN_EMPRESA_2024_MANUFACTURA.csv"
+
+# ---------------- FUNCIONES ----------------
+@st.cache_data
 def load_data(path):
-    try:
-        return pd.read_csv(path, sep="|")  # ajusta el separador si no es "|"
-    except Exception as e:
-        st.error(f"Error al cargar {path}: {e}")
-        return pd.DataFrame()
+    return pd.read_csv(path)
 
-# ---------------- DATOS -----------------
-# Rutas a los archivos
-df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
-df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
-df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
-RUTA_GEOJSON = "data/lima_distritos.geojson"
+@st.cache_data
+def load_shapefile(path):
+    return gpd.read_file(path)
 
-RUTA_SHAPEFILE = "lima_distritos.geojson"
-gdf_lima = gpd.read_file(RUTA_SHAPEFILE)
+# ---------------- DATA ----------------
+# Cargar shapefile
+gdf = load_shapefile(RUTA_SHAPEFILE)
 
-# Cargar datasets de ventas
-ventas_2022 = pd.read_csv(RUTA_VENTAS_2022)
-ventas_2023 = pd.read_csv(RUTA_VENTAS_2023)
-ventas_2024 = pd.read_csv(RUTA_VENTAS_2024)
+# Filtrar solo Lima
+gdf_lima = gdf[gdf["DEPARTAMEN"].str.upper() == "LIMA"]
 
-# Normalizamos para tener misma estructura
-for df, year in zip([ventas_2022, ventas_2023, ventas_2024], [2022, 2023, 2024]):
-    df["Año"] = year
+# Cargar ventas
+df_2022 = load_data(RUTA_VENTAS_2022)
+df_2023 = load_data(RUTA_VENTAS_2023)
+df_2024 = load_data(RUTA_VENTAS_2024)
 
-ventas = pd.concat([ventas_2022, ventas_2023, ventas_2024], ignore_index=True)
+# Unificar en un solo DataFrame con columna "año"
+df_2022["año"] = 2022
+df_2023["año"] = 2023
+df_2024["año"] = 2024
+df_all = pd.concat([df_2022, df_2023, df_2024], ignore_index=True)
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.header("⚙️ Controles")
+# ---------------- STREAMLIT APP ----------------
+st.set_page_config(page_title="Análisis Lima", layout="wide")
 
-# Selección de año
-anio = st.sidebar.selectbox("Selecciona el año", [2022, 2023, 2024])
+st.title("📊 Análisis de Ventas en Lima")
+st.write("Mapa de calor distrital + comparación de provincias por año.")
 
-# Provincias disponibles
-provincias = ventas["Provincia"].unique().tolist()
-provincias_sel = st.sidebar.multiselect(
-    "Selecciona provincias",
-    provincias,
-    default=provincias[:1]  # por defecto la primera
+# Selector de año
+anio = st.radio("Selecciona el año:", options=sorted(df_all["año"].unique()), horizontal=True)
+
+# Selector de métrica
+metrica = st.selectbox(
+    "Métrica a mostrar:",
+    ["Promedio de ventas", "Total de ventas"]
 )
 
-# Métrica: Promedio o Total
-metrica = st.sidebar.radio(
-    "Métrica a mostrar",
-    ["Promedio", "Total"]
-)
+# Filtrar por año
+df_year = df_all[df_all["año"] == anio]
 
-# Umbral mínimo para mapa de calor
-umbral_min = st.sidebar.number_input(
-    "Umbral mínimo de ventas para incluir en el mapa",
-    min_value=0.0, value=1000.0, step=500.0
-)
-
-# ---------------- FILTRADO ----------------
-df_filtrado = ventas[
-    (ventas["Año"] == anio) & (ventas["Provincia"].isin(provincias_sel))
-]
-
-# ---------------- GRÁFICOS ----------------
-st.title("📊 Análisis Económico Lima")
-
-# Gráfico comparativo por provincia
-if metrica == "Promedio":
-    df_agg = df_filtrado.groupby("Provincia")["Ventas"].mean().reset_index()
-    titulo = "📊 Comparación de Venta Promedio por Provincia"
+# Agregar datos por distrito
+if metrica == "Promedio de ventas":
+    df_grouped = df_year.groupby("distrito", as_index=False)["venta_prom"].mean()
+    columna_valor = "venta_prom"
+    titulo_metrica = "Promedio de ventas"
 else:
-    df_agg = df_filtrado.groupby("Provincia")["Ventas"].sum().reset_index()
-    titulo = "📊 Comparación de Ventas Totales por Provincia"
+    df_grouped = df_year.groupby("distrito", as_index=False)["venta_prom"].sum()
+    columna_valor = "venta_prom"
+    titulo_metrica = "Ventas totales"
 
-fig_bar = px.bar(
-    df_agg,
-    x="Provincia",
-    y="Ventas",
-    color="Provincia",
-    title=titulo,
-    text_auto=True,
-    hover_data={"Ventas": ":,.2f"}
-)
-fig_bar.update_layout(legend=dict(title="Provincias", itemsizing="constant"))
+# Hacer merge con shapefile
+gdf_merged = gdf_lima.merge(df_grouped, left_on="NOMBDIST", right_on="distrito", how="left")
 
-st.plotly_chart(fig_bar, use_container_width=True)
+# Plot mapa
+fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+gdf_lima.boundary.plot(ax=ax, linewidth=0.5, color="black")
 
-# Mapa de calor distrital
-st.subheader("🗺️ Mapa de Calor Distrital (Lima)")
-
-# Filtrar ventas por distrito y año
-ventas_distrital = df_filtrado.groupby("Distrito")["Ventas"].sum().reset_index()
-
-# Aplicar umbral: distritos con ventas < umbral = 0 (se verán en gris)
-ventas_distrital.loc[ventas_distrital["Ventas"] < umbral_min, "Ventas"] = 0
-
-# Merge con geometría
-gdf_map = gdf_lima.merge(ventas_distrital, how="left", left_on="NOMB_DIST", right_on="Distrito")
-
-# Colorear solo distritos con datos, los demás en gris/transparente
-gdf_map["color"] = gdf_map["Ventas"].apply(lambda x: None if pd.isna(x) or x == 0 else x)
-
-fig_map = px.choropleth_mapbox(
-    gdf_map,
-    geojson=gdf_map.geometry.__geo_interface__,
-    locations=gdf_map.index,
-    color="color",
-    color_continuous_scale="Reds",
-    mapbox_style="carto-positron",
-    zoom=8.5,
-    center={"lat": -12.0464, "lon": -77.0428},
-    opacity=0.7,
-    hover_name="NOMB_DIST",
-    hover_data={"Ventas": ":,.2f"}
+# Distritos con datos válidos
+gdf_data = gdf_merged[gdf_merged[columna_valor].notna() & (gdf_merged[columna_valor] > 1000)]
+gdf_data.plot(
+    column=columna_valor,
+    cmap="Reds",
+    linewidth=0.8,
+    ax=ax,
+    edgecolor="0.8",
+    legend=True,
 )
 
-fig_map.update_layout(coloraxis_colorbar=dict(title="Ventas"))
+# Distritos sin datos → gris/transparente
+gdf_no_data = gdf_merged[gdf_merged[columna_valor].isna() | (gdf_merged[columna_valor] <= 1000)]
+gdf_no_data.plot(ax=ax, color="lightgrey", alpha=0.2, edgecolor="0.7")
 
-st.plotly_chart(fig_map, use_container_width=True)
+ax.set_title(f"Mapa de calor de {titulo_metrica} por distrito — {anio}", fontsize=14)
+ax.axis("off")
+st.pyplot(fig)
 
-st.caption("Distritos sin datos aparecen en gris. El umbral mínimo filtra valores demasiado bajos para mejorar la escala de color.")
+# ---------------- Comparación de provincias ----------------
+df_prov = df_year.groupby("provincia", as_index=False).agg(
+    {columna_valor: "mean" if metrica=="Promedio de ventas" else "sum"}
+)
+
+st.subheader(f"📊 Comparación de {titulo_metrica} por Provincia — {anio}")
+st.bar_chart(df_prov.set_index("provincia")[columna_valor])
