@@ -5,3 +5,6 @@ shapely
 matplotlib
 plotly
 unidecode
+fiona
+pyproj
+shapely
