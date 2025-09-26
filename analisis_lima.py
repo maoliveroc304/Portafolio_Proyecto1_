@@ -1,13 +1,12 @@
-# análisis_lima.py
+# analisis_lima.py
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import plotly.express as px
 import unidecode
 
 # ---------------- CONFIGURACIÓN ----------------
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="📊 Análisis Económico Lima")
 st.title('📊 Análisis Económico de Grandes Empresas Manufactureras en Lima (2022–2024)')
 
 # ---------------- UTILIDADES ----------------
@@ -17,14 +16,6 @@ def load_data(filepath):
         return pd.read_csv(filepath, sep='|')
     except Exception as e:
         st.error(f"Error al cargar {filepath}: {e}")
-        return None
-
-@st.cache_data
-def load_geojson(url):
-    try:
-        return gpd.read_file(url)
-    except Exception as e:
-        st.error(f"No se pudo cargar GeoJSON: {e}")
         return None
 
 def prepare_df(df, year):
@@ -41,10 +32,10 @@ def main():
     df_2022 = load_data("data/GRAN_EMPRESA_2022_MANUFACTURA.csv")
     df_2023 = load_data("data/GRAN_EMPRESA_2023_MANUFACTURA.csv")
     df_2024 = load_data("data/GRAN_EMPRESA_2024_MANUFACTURA.csv")
-    
+
     if df_2022 is None or df_2023 is None or df_2024 is None:
         st.stop()
-    
+
     combined_df = pd.concat([
         prepare_df(df_2022, 2022),
         prepare_df(df_2023, 2023),
@@ -52,7 +43,7 @@ def main():
     ])
 
     # --- 2. Selector de provincias ---
-    all_provinces = combined_df['provincia'].unique().tolist()
+    all_provinces = sorted(combined_df['provincia'].unique())
     selected_provinces = st.multiselect(
         '📍 Selecciona las provincias a visualizar',
         all_provinces,
@@ -63,7 +54,6 @@ def main():
     # --- 3. Gráfico de dispersión interactivo ---
     st.header("🔎 Relación entre Venta Promedio, Trabajadores y Experiencia")
     promedios = filtered_df.groupby(['provincia', 'año']).mean(numeric_only=True).reset_index()
-    
     fig_scatter = px.scatter(
         promedios,
         x="trabajador",
@@ -72,7 +62,8 @@ def main():
         color="año",
         hover_name="provincia",
         labels={"venta_prom": "Venta Promedio (S/)", "trabajador": "Trabajadores"},
-        title="Relación entre Venta, Trabajadores y Experiencia"
+        title="Relación entre Venta, Trabajadores y Experiencia",
+        template="plotly_white"
     )
     st.plotly_chart(fig_scatter, use_container_width=True)
 
@@ -94,18 +85,17 @@ def main():
         color="año",
         barmode="group",
         labels={"venta_prom": "Ventas (S/)", "provincia": "Provincia"},
-        title=titulo
+        title=titulo,
+        template="plotly_white"
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # --- 5. Mapa de calor distrital ---
     st.header("🗺️ Mapa de calor distrital de ventas en Lima")
-
-    # URL del GeoJSON en GitHub
-    URL_GEOJSON = "https://raw.githubusercontent.com/usuario/repositorio/main/data/lima_distritos.geojson"
-    gdf_lima = load_geojson(URL_GEOJSON)
-    if gdf_lima is None:
-        st.stop()
+    
+    # Cargar GeoJSON desde GitHub
+    RUTA_GEOJSON = "https://raw.githubusercontent.com/usuario/repositorio/main/data/lima_distritos.geojson"
+    gdf_lima = gpd.read_file(RUTA_GEOJSON)
 
     # Selector de año
     year_selected = st.radio("Selecciona el año para el mapa:", [2022, 2023, 2024], horizontal=True)
@@ -124,14 +114,15 @@ def main():
     merged = gdf_lima.merge(ventas_df, on="DISTRITO_NORM", how="left")
     merged["venta_millones"] = merged["venta_millones"].fillna(0)
 
-    # Filtrar mínimo para mapa
+    # Filtro mínimo para mapa
     UMBRAL = 0.5  # millones
     merged_filtrado = merged.copy()
     merged_filtrado.loc[merged_filtrado["venta_millones"] < UMBRAL, "venta_millones"] = None
 
     # Plot mapa
+    import matplotlib.pyplot as plt
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base
+    merged.plot(ax=ax, color="lightgrey", edgecolor="white", linewidth=0.5)  # base gris
     merged_filtrado.plot(
         column="venta_millones",
         cmap="OrRd",
@@ -142,7 +133,6 @@ def main():
     )
     ax.axis("off")
     st.pyplot(fig)
-
 
 if __name__ == "__main__":
     main()
