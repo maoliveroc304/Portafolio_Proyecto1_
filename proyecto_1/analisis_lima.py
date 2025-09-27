@@ -287,11 +287,11 @@ def main():
     # -----------------------------
     col5, col6 = st.columns(2)
     with col5:
-    st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
-    plot_linear_regression(filtered_df)
+        st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
+        plot_linear_regression(filtered_df)
     with col6:
-    st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
-    plot_caja_bigotes(filtered_df)
+        st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
+        plot_caja_bigotes(filtered_df)
 
 if __name__ == "__main__":
     main()
