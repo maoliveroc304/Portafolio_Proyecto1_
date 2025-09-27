@@ -132,8 +132,8 @@ def plot_linear_regression(df):
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
-def plot_strip_box(df):
-    st.subheader("📈 Distribución de Ventas por Número de Trabajadores (Strip + Boxplot)")
+def plot_boxplot(df):
+    st.subheader("📊 Distribución de Ventas por Número de Trabajadores (Boxplot)")
     
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
@@ -147,19 +147,7 @@ def plot_strip_box(df):
         x='trabajador_bin',
         y='venta_prom_millones',
         data=df_plot,
-        whis=1.5,
-        width=0.6,
-        fliersize=0,
         palette="Set3"
-    )
-    sns.stripplot(
-        x='trabajador_bin',
-        y='venta_prom_millones',
-        data=df_plot,
-        color='black',
-        size=4,
-        jitter=True,
-        alpha=0.5
     )
     ax.set_xlabel("Número de Trabajadores (bins)")
     ax.set_ylabel("Venta Promedio (Millones S/.)")
@@ -222,13 +210,13 @@ def main():
         plot_correlation(filtered_df)
 
     # -----------------------------
-    # Fila 3: Regresión Lineal y Strip + Boxplot
+    # Fila 3: Regresión Lineal y Boxplot
     # -----------------------------
     col5, col6 = st.columns(2)
     with col5:
         plot_linear_regression(filtered_df)
     with col6:
-        plot_strip_box(filtered_df)
+        plot_boxplot(filtered_df)
 
 if __name__ == "__main__":
     main()
