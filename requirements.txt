@@ -6,3 +6,4 @@ numpy
 unidecode
 plotly
 statsmodels
+scikit-learn
