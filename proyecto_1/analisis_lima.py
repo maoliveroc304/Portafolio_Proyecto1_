@@ -21,6 +21,7 @@ st.title('Análisis del Desempeño Económico de Grandes Empresas Manufactureras
 # -----------------------------
 @st.cache_data
 def load_data(filepath):
+    """Carga CSV desde la ruta indicada."""
     try:
         return pd.read_csv(filepath, sep='|')
     except Exception as e:
@@ -28,11 +29,13 @@ def load_data(filepath):
         return None
 
 def prepare_df(df, year):
+    """Filtra Lima y selecciona columnas relevantes, añadiendo año."""
     subset = df[df['departamento'] == 'LIMA'][['provincia', 'distrito', 'ciiu', 'sector', 'venta_prom', 'trabajador', 'experiencia']].copy()
     subset['año'] = year
     return subset
 
 def normalize_text(s):
+    """Normaliza texto para evitar problemas de tildes y mayúsculas."""
     if isinstance(s, str):
         s = unicodedata.normalize("NFKD", s)
         return "".join([c for c in s if not unicodedata.combining(c)]).upper().strip()
@@ -42,6 +45,7 @@ def normalize_text(s):
 # FUNCIONES DE GRÁFICOS
 # -----------------------------
 def plot_scatter(df):
+    """Scatter plot con leyenda fija debajo de la gráfica."""
     promedios = df.groupby(['provincia', 'año'])[['venta_prom', 'trabajador', 'experiencia']].mean().reset_index()
     fig = px.scatter(
         promedios,
@@ -110,6 +114,7 @@ def plot_linear_regression(df):
     st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
     show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
     
+    # Convertir ventas a millones
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
     
@@ -130,12 +135,14 @@ def plot_linear_regression(df):
 def plot_caja_bigotes(df):
     st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
     
+    # --- Campos de entrada de percentiles ---
     col1, col2 = st.columns(2)
     with col1:
-        p_low = st.number_input("Percentil inferior (0-1)", value=0.01, step=0.01, format="%.2f", key="p_low")
+        p_low = st.number_input("Percentil inferior (0-1)", value=0.01, step=0.01, format="%.2f")
     with col2:
-        p_high = st.number_input("Percentil superior (0-1)", value=0.90, step=0.01, format="%.2f", key="p_high")
+        p_high = st.number_input("Percentil superior (0-1)", value=0.90, step=0.01, format="%.2f")
 
+    # --- Validación ---
     if not (0 <= p_low <= 1) or not (0 <= p_high <= 1):
         st.error("Los percentiles deben estar entre 0 y 1.")
         return
@@ -145,14 +152,18 @@ def plot_caja_bigotes(df):
 
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
+
+    # --- Filtrar según percentiles ---
     lower = df_plot['venta_prom_millones'].quantile(p_low)
     upper = df_plot['venta_prom_millones'].quantile(p_high)
     df_filtered = df_plot[(df_plot['venta_prom_millones'] >= lower) & (df_plot['venta_prom_millones'] <= upper)]
 
+    # --- Bins manuales de experiencia ---
     bins = [0, 5, 10, 20, 30, 50, df_filtered['experiencia'].max()]
     labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
     df_filtered['experiencia_bin'] = pd.cut(df_filtered['experiencia'], bins=bins, labels=labels, include_lowest=True)
     
+    # --- Graficar ---
     fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
         y='experiencia_bin',
@@ -168,25 +179,6 @@ def plot_caja_bigotes(df):
     st.pyplot(fig)
 
     st.markdown("*Nota: Se han excluido valores extremadamente dispersos para mejorar la legibilidad.*")
-
-# -----------------------------
-# SELECTORES SINCRONIZADOS
-# -----------------------------
-def selectores(df):
-    if "years_selected" not in st.session_state:
-        st.session_state.years_selected = [2022, 2023, 2024]
-    if "selected_provinces" not in st.session_state:
-        st.session_state.selected_provinces = df["provincia"].unique().tolist()
-
-    all_provinces = df["provincia"].unique().tolist()
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.years_selected = st.multiselect("Selecciona los años a visualizar", [2022, 2023, 2024], default=st.session_state.years_selected)
-    with col2:
-        st.session_state.selected_provinces = st.multiselect("Selecciona las provincias a visualizar", all_provinces, default=st.session_state.selected_provinces)
-    
-    return st.session_state.years_selected, st.session_state.selected_provinces
 
 # -----------------------------
 # MAIN
@@ -213,14 +205,11 @@ def main():
         prepare_df(df_2024, 2024)
     ])
 
-    if __name__ == "__main__":
-    # Ejecutar main
-    main()
-
-    # --- Selectores superiores ---
-    years_selected, selected_provinces = selectores(combined_df)
-
+    years_selected = st.multiselect("Selecciona los años a visualizar", [2022, 2023, 2024], default=[2022, 2023, 2024])
     filtered_df = combined_df[combined_df["año"].isin(years_selected)]
+
+    all_provinces = filtered_df["provincia"].unique().tolist()
+    selected_provinces = st.multiselect("Selecciona las provincias a visualizar", all_provinces, default=all_provinces)
     filtered_df = filtered_df[filtered_df["provincia"].isin(selected_provinces)]
 
     # -----------------------------
@@ -246,7 +235,7 @@ def main():
         plot_correlation(filtered_df)
 
     # -----------------------------
-    # Fila 3: Regresión Lineal y Caja de Bigotes
+    # Fila 3: Regresión Lineal y Boxplot
     # -----------------------------
     col5, col6 = st.columns(2)
     with col5:
@@ -254,11 +243,9 @@ def main():
     with col6:
         plot_caja_bigotes(filtered_df)
 
-    # --- Selectores inferiores ---
-    st.markdown("---")
-    years_selected, selected_provinces = selectores(combined_df)
+if __name__ == "__main__":
+    main()
 
     # ---------------- FOOTER ----------------
     st.markdown("---")
     st.markdown("<div style='font-size:0.85rem; color:gray;'>© 2025 · Miguel Olivero · Todos los derechos reservados</div>", unsafe_allow_html=True)
-
