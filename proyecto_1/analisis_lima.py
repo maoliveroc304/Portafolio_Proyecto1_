@@ -216,7 +216,7 @@ def main():
     with col5:
         plot_linear_regression(filtered_df)
     with col6:
-        plot_boxplot(filtered_df)
+    plot_caja_bigotes(filtered_df)
 
 if __name__ == "__main__":
     main()
