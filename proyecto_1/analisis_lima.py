@@ -235,7 +235,7 @@ def main():
         plot_correlation(filtered_df)
 
     # -----------------------------
-    # Fila 3: Regresión Lineal y Boxplot
+    # Fila 3: Regresión Lineal y Boxplot (caja y bigotes)
     # -----------------------------
     col5, col6 = st.columns(2)
     with col5:
