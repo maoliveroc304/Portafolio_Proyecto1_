@@ -58,13 +58,12 @@ def plot_scatter(df):
         labels={"trabajador": "Promedio de Trabajadores", "venta_prom": "Promedio de Ventas (S/.)"},
         title="Relación entre Venta, Trabajadores y Experiencia"
     )
-    # Leyenda fija debajo de la gráfica
     fig.update_traces(showlegend=True)
     fig.update_layout(
         legend_title_text="Año",
         legend=dict(
-            orientation='h',  # Horizontal
-            y=-0.2,           # Posición debajo de la gráfica
+            orientation='h',
+            y=-0.2,
             x=0,
             xanchor='left',
             yanchor='top',
@@ -72,7 +71,7 @@ def plot_scatter(df):
         ),
         legend_itemclick=False,
         legend_itemdoubleclick=False,
-        margin=dict(b=80)  # Margen inferior para que no se corte la leyenda
+        margin=dict(b=80)
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -95,7 +94,7 @@ def plot_heatmap(df):
     ventas_totales["venta_millones"] = ventas_totales["venta_prom"] / 1_000_000
     pivot = ventas_totales.pivot(index="provincia", columns="año", values="venta_millones")
     
-    fig, ax = plt.subplots(figsize=(6, 4))  # Ajustado para columna
+    fig, ax = plt.subplots(figsize=(6, 4))
     sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
     ax.set_title("Ventas Totales por Provincia (Millones de S/.)")
     ax.set_xlabel("Año")
@@ -106,9 +105,42 @@ def plot_correlation(df):
     corr_df = df[['venta_prom', 'trabajador', 'experiencia']]
     corr = corr_df.corr()
     
-    fig, ax = plt.subplots(figsize=(6, 4))  # Ajustado para columna
+    fig, ax = plt.subplots(figsize=(6, 4))
     sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
     ax.set_title("Correlación entre Venta, Trabajadores y Experiencia")
+    st.pyplot(fig)
+
+def plot_linear_regression(df):
+    st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.regplot(
+        data=df,
+        x="trabajador",
+        y="venta_prom",
+        scatter_kws={"s":30, "alpha":0.5},
+        line_kws={"color":"red"}
+    )
+    ax.set_xlabel("Número de Trabajadores")
+    ax.set_ylabel("Venta Promedio (S/.)")
+    ax.set_title("Regresión Lineal: Venta vs Trabajadores")
+    st.pyplot(fig)
+
+def plot_logistic_regression(df):
+    st.subheader("📈 Regresión Logística: Probabilidad de Alta Venta")
+    df["alta_venta"] = (df["venta_prom"] > df["venta_prom"].median()).astype(int)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.regplot(
+        data=df,
+        x="trabajador",
+        y="alta_venta",
+        logistic=True,
+        ci=None,
+        scatter_kws={"s":30, "alpha":0.5},
+        line_kws={"color":"green"}
+    )
+    ax.set_xlabel("Número de Trabajadores")
+    ax.set_ylabel("Probabilidad de Alta Venta")
+    ax.set_title("Regresión Logística: Alta Venta vs Trabajadores")
     st.pyplot(fig)
 
 # -----------------------------
@@ -118,12 +150,10 @@ def main():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     data_folder = os.path.join(BASE_DIR, '..', 'data', 'proyecto_1')
     
-    # Rutas completas
     file_2022 = os.path.join(data_folder, 'GRAN_EMPRESA_2022_MANUFACTURA.csv')
     file_2023 = os.path.join(data_folder, 'GRAN_EMPRESA_2023_MANUFACTURA.csv')
     file_2024 = os.path.join(data_folder, 'GRAN_EMPRESA_2024_MANUFACTURA.csv')
 
-    # Cargar datos
     df_2022 = load_data(file_2022)
     df_2023 = load_data(file_2023)
     df_2024 = load_data(file_2024)
@@ -132,18 +162,15 @@ def main():
         st.error("No se pudieron cargar los datos. Verifica que los archivos existan en la carpeta 'data'.")
         return
 
-    # Preparar datos combinados
     combined_df = pd.concat([
         prepare_df(df_2022, 2022),
         prepare_df(df_2023, 2023),
         prepare_df(df_2024, 2024)
     ])
 
-    # Filtro de años
     years_selected = st.multiselect("Selecciona los años a visualizar", [2022, 2023, 2024], default=[2022, 2023, 2024])
     filtered_df = combined_df[combined_df["año"].isin(years_selected)]
 
-    # Filtro de provincias
     all_provinces = filtered_df["provincia"].unique().tolist()
     selected_provinces = st.multiselect("Selecciona las provincias a visualizar", all_provinces, default=all_provinces)
     filtered_df = filtered_df[filtered_df["provincia"].isin(selected_provinces)]
@@ -160,7 +187,7 @@ def main():
         plot_heatmap(filtered_df)
 
     # -----------------------------
-    # Fila 2: Barras y Correlación (misma altura)
+    # Fila 2: Barras y Correlación
     # -----------------------------
     col3, col4 = st.columns(2)
     with col3:
@@ -169,6 +196,15 @@ def main():
     with col4:
         st.subheader("📊 Matriz de Correlación")
         plot_correlation(filtered_df)
+
+    # -----------------------------
+    # Fila 3: Regresiones Lineal y Logística
+    # -----------------------------
+    col5, col6 = st.columns(2)
+    with col5:
+        plot_linear_regression(filtered_df)
+    with col6:
+        plot_logistic_regression(filtered_df)
 
 if __name__ == "__main__":
     main()
