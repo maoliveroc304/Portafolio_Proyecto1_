@@ -137,17 +137,22 @@ def plot_caja_bigotes(df):
     
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
-    
+
+    # Filtrar valores extremos (percentil 1% y 99%)
+    lower = df_plot['venta_prom_millones'].quantile(0.01)
+    upper = df_plot['venta_prom_millones'].quantile(0.99)
+    df_filtered = df_plot[(df_plot['venta_prom_millones'] >= lower) & (df_plot['venta_prom_millones'] <= upper)]
+
     # Bins manuales de experiencia
-    bins = [0, 5, 10, 20, 30, 50, df_plot['experiencia'].max()]
+    bins = [0, 5, 10, 20, 30, 50, df_filtered['experiencia'].max()]
     labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
-    df_plot['experiencia_bin'] = pd.cut(df_plot['experiencia'], bins=bins, labels=labels, include_lowest=True)
+    df_filtered['experiencia_bin'] = pd.cut(df_filtered['experiencia'], bins=bins, labels=labels, include_lowest=True)
     
     fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
-        y='experiencia_bin',   # eje vertical para más espacio
-        x='venta_prom_millones', 
-        data=df_plot,
+        y='experiencia_bin',
+        x='venta_prom_millones',
+        data=df_filtered,
         palette="Set3",
         orient='h'
     )
@@ -156,6 +161,9 @@ def plot_caja_bigotes(df):
     ax.set_title("Distribución de Ventas por Experiencia")
     plt.tight_layout()
     st.pyplot(fig)
+
+    # Nota indicando que se han excluido valores extremos
+    st.markdown("*Nota: Se han excluido valores extremadamente dispersos para mejorar la legibilidad.*")
 
 
 
