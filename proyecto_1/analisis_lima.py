@@ -213,6 +213,10 @@ def main():
         prepare_df(df_2024, 2024)
     ])
 
+    if __name__ == "__main__":
+    # Ejecutar main
+    main()
+
     # --- Selectores superiores ---
     years_selected, selected_provinces = selectores(combined_df)
 
