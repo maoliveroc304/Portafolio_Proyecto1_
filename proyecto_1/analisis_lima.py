@@ -138,24 +138,25 @@ def plot_caja_bigotes(df):
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
     
-    # Definir bins manuales de experiencia
+    # Bins manuales de experiencia
     bins = [0, 5, 10, 20, 30, 50, df_plot['experiencia'].max()]
     labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
     df_plot['experiencia_bin'] = pd.cut(df_plot['experiencia'], bins=bins, labels=labels, include_lowest=True)
     
     fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
-        x='experiencia_bin',
-        y='venta_prom_millones',
+        y='experiencia_bin',   # eje vertical para más espacio
+        x='venta_prom_millones', 
         data=df_plot,
-        palette="Set3"
+        palette="Set3",
+        orient='h'
     )
-    ax.set_xlabel("Experiencia (años, bins)")
-    ax.set_ylabel("Venta Promedio (Millones S/.)")
+    ax.set_xlabel("Venta Promedio (Millones S/.)")
+    ax.set_ylabel("Experiencia (años, bins)")
     ax.set_title("Distribución de Ventas por Experiencia")
-    plt.xticks(rotation=30)
     plt.tight_layout()
     st.pyplot(fig)
+
 
 
 # -----------------------------
