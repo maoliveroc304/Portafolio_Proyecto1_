@@ -135,19 +135,35 @@ def plot_linear_regression(df):
 def plot_caja_bigotes(df):
     st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
     
+    # --- Campos de entrada de percentiles ---
+    col1, col2 = st.columns(2)
+    with col1:
+        p_low = st.number_input("Percentil inferior (0-1)", value=0.01, step=0.01, format="%.2f")
+    with col2:
+        p_high = st.number_input("Percentil superior (0-1)", value=0.90, step=0.01, format="%.2f")
+
+    # --- Validación ---
+    if not (0 <= p_low <= 1) or not (0 <= p_high <= 1):
+        st.error("Los percentiles deben estar entre 0 y 1.")
+        return
+    if p_low > p_high:
+        st.error("El percentil inferior debe ser menor o igual al percentil superior.")
+        return
+
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
 
-    # Filtrar valores extremos (percentil 1% y 90%)
-    lower = df_plot['venta_prom_millones'].quantile(0.01)
-    upper = df_plot['venta_prom_millones'].quantile(0.9)
+    # --- Filtrar según percentiles ---
+    lower = df_plot['venta_prom_millones'].quantile(p_low)
+    upper = df_plot['venta_prom_millones'].quantile(p_high)
     df_filtered = df_plot[(df_plot['venta_prom_millones'] >= lower) & (df_plot['venta_prom_millones'] <= upper)]
 
-    # Bins manuales de experiencia
+    # --- Bins manuales de experiencia ---
     bins = [0, 5, 10, 20, 30, 50, df_filtered['experiencia'].max()]
     labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
     df_filtered['experiencia_bin'] = pd.cut(df_filtered['experiencia'], bins=bins, labels=labels, include_lowest=True)
     
+    # --- Graficar ---
     fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
         y='experiencia_bin',
@@ -158,14 +174,11 @@ def plot_caja_bigotes(df):
     )
     ax.set_xlabel("Venta Promedio (Millones S/.)")
     ax.set_ylabel("Experiencia (años, bins)")
-    ax.set_title("Distribución de Ventas por Experiencia")
+    ax.set_title(f"Distribución de Ventas por Experiencia (Percentiles {p_low*100:.0f}%-{p_high*100:.0f}%)")
     plt.tight_layout()
     st.pyplot(fig)
 
-    # Nota indicando que se han excluido valores extremos
     st.markdown("*Nota: Se han excluido valores extremadamente dispersos para mejorar la legibilidad.*")
-
-
 
 # -----------------------------
 # MAIN
