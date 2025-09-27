@@ -85,8 +85,6 @@ def plot_scatter(df):
 
 
 def plot_bars(df):
-    st.subheader("📊 Comparación de Venta Promedio por Provincia")  # siempre se muestra
-
     if df.empty:
         st.warning("No hay datos para generar el gráfico de barras.")
         return
@@ -106,7 +104,6 @@ def plot_bars(df):
         labels={"venta_millones": "Venta Promedio (Millones S/.)"},
     )
     st.plotly_chart(fig, use_container_width=True)
-
 
 def plot_heatmap(df):
     if df.empty:
@@ -179,13 +176,9 @@ def plot_linear_regression(df):
 
 
 def plot_caja_bigotes(df):
-    st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")  # siempre se muestra
-
     if df.empty:
         st.warning("No hay datos para generar el boxplot.")
         return
-
-    st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -234,7 +227,6 @@ def plot_caja_bigotes(df):
     plt.tight_layout()
     st.pyplot(fig)
     st.markdown("*Nota: Se han excluido valores extremadamente dispersos para mejorar la legibilidad.*")
-
 
 # -----------------------------
 # MAIN
