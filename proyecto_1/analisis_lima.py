@@ -45,7 +45,6 @@ def normalize_text(s):
 # GRÁFICOS
 # -----------------------------
 def plot_scatter(df):
-    st.subheader("📊 Relación entre Venta Promedio, Trabajadores y Experiencia")
     promedios = df.groupby(['provincia', 'año'])[['venta_prom', 'trabajador', 'experiencia']].mean().reset_index()
     fig = px.scatter(
         promedios,
@@ -61,7 +60,6 @@ def plot_scatter(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_bars(df):
-    st.subheader("📊 Comparación de Venta Promedio por Provincia")
     ventas = df.groupby(['provincia', 'año'])['venta_prom'].mean().reset_index()
     ventas["venta_millones"] = ventas["venta_prom"] / 1_000_000
     fig = px.bar(
@@ -76,11 +74,11 @@ def plot_bars(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_heatmap(df):
-    st.subheader("📊 Ventas Totales por Provincia")
     ventas_totales = df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
     ventas_totales["venta_millones"] = ventas_totales["venta_prom"] / 1_000_000
     pivot = ventas_totales.pivot(index="provincia", columns="año", values="venta_millones")
-    fig, ax = plt.subplots(figsize=(10, 7))
+    
+    fig, ax = plt.subplots(figsize=(6, 4))  # Ajustado para columna
     sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
     ax.set_title("Ventas Totales por Provincia (Millones de S/.)")
     ax.set_xlabel("Año")
@@ -88,10 +86,10 @@ def plot_heatmap(df):
     st.pyplot(fig)
 
 def plot_correlation(df):
-    st.subheader("📊 Matriz de correlación")
     corr_df = df[['venta_prom', 'trabajador', 'experiencia']]
     corr = corr_df.corr()
-    fig, ax = plt.subplots(figsize=(6, 5))
+    
+    fig, ax = plt.subplots(figsize=(6, 4))  # Ajustado para columna
     sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
     ax.set_title("Correlación entre Venta, Trabajadores y Experiencia")
     st.pyplot(fig)
@@ -133,11 +131,24 @@ def main():
     selected_provinces = st.multiselect("Selecciona las provincias a visualizar", all_provinces, default=all_provinces)
     filtered_df = filtered_df[filtered_df["provincia"].isin(selected_provinces)]
 
-    # Dibujar gráficos
-    plot_scatter(filtered_df)
-    plot_bars(filtered_df)
-    plot_heatmap(filtered_df)
-    plot_correlation(filtered_df)
+    # -----------------------------
+    # Dibujar gráficos en 2 columnas
+    # -----------------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("📊 Relación entre Venta, Trabajadores y Experiencia")
+        plot_scatter(filtered_df)
+
+        st.subheader("📊 Comparación de Venta Promedio por Provincia")
+        plot_bars(filtered_df)
+
+    with col2:
+        st.subheader("📊 Ventas Totales por Provincia")
+        plot_heatmap(filtered_df)
+
+        st.subheader("📊 Matriz de Correlación")
+        plot_correlation(filtered_df)
 
 if __name__ == "__main__":
     main()
