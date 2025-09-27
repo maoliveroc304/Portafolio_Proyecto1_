@@ -138,9 +138,9 @@ def plot_caja_bigotes(df):
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
 
-    # Filtrar valores extremos (percentil 1% y 99%)
+    # Filtrar valores extremos (percentil 1% y 90%)
     lower = df_plot['venta_prom_millones'].quantile(0.01)
-    upper = df_plot['venta_prom_millones'].quantile(0.99)
+    upper = df_plot['venta_prom_millones'].quantile(0.9)
     df_filtered = df_plot[(df_plot['venta_prom_millones'] >= lower) & (df_plot['venta_prom_millones'] <= upper)]
 
     # Bins manuales de experiencia
