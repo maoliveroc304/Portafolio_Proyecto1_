@@ -8,9 +8,6 @@ import seaborn as sns
 import numpy as np
 import unicodedata
 import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 import os
 
 # -----------------------------
@@ -117,63 +114,58 @@ def plot_linear_regression(df):
     st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
     show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
     
+    # Convertir ventas a millones
+    df_plot = df.copy()
+    df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
+    
     fig, ax = plt.subplots(figsize=(6,4))
     sns.regplot(
-        data=df,
+        data=df_plot,
         x="trabajador",
-        y="venta_prom",
+        y="venta_prom_millones",
         scatter=show_points,
         line_kws={"color":"red"},
         ci=95
     )
     ax.set_xlabel("Número de Trabajadores")
-    ax.set_ylabel("Venta Promedio (S/.)")
+    ax.set_ylabel("Venta Promedio (Millones S/.)")
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
-def plot_logistic_regression(df):
-    st.subheader("📈 Regresión Logística: Probabilidad de Alta Venta")
+def plot_strip_box(df):
+    st.subheader("📈 Distribución de Ventas por Número de Trabajadores (Strip + Boxplot)")
     
-    df = df.copy()
-    df["alta_venta"] = (df["venta_prom"] > df["venta_prom"].median()).astype(int)
+    df_plot = df.copy()
+    df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
     
-    X = df[["trabajador"]].values
-    y = df["alta_venta"].values
+    # Crear bins de trabajadores para mejor visualización
+    bins = pd.qcut(df_plot['trabajador'], q=6, duplicates='drop')
+    df_plot['trabajador_bin'] = bins.astype(str)
     
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    model = LogisticRegression()
-    model.fit(X_scaled, y)
-    
-    x_range = np.linspace(X_scaled.min(), X_scaled.max(), 200).reshape(-1,1)
-    y_pred = model.predict_proba(x_range)[:,1]
-    
-    x_range_orig = scaler.inverse_transform(x_range).flatten()
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df["trabajador"],
-        y=df["alta_venta"],
-        mode="markers",
-        name="Datos",
-        marker=dict(size=6, opacity=0.5)
-    ))
-    fig.add_trace(go.Scatter(
-        x=x_range_orig,
-        y=y_pred,
-        mode="lines",
-        name="Regresión Logística",
-        line=dict(color="green")
-    ))
-    
-    fig.update_layout(
-        xaxis_title="Número de Trabajadores",
-        yaxis_title="Probabilidad de Alta Venta",
-        title="Regresión Logística: Alta Venta vs Trabajadores"
+    fig, ax = plt.subplots(figsize=(6,4))
+    sns.boxplot(
+        x='trabajador_bin',
+        y='venta_prom_millones',
+        data=df_plot,
+        whis=1.5,
+        width=0.6,
+        fliersize=0,
+        palette="Set3"
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    sns.stripplot(
+        x='trabajador_bin',
+        y='venta_prom_millones',
+        data=df_plot,
+        color='black',
+        size=4,
+        jitter=True,
+        alpha=0.5
+    )
+    ax.set_xlabel("Número de Trabajadores (bins)")
+    ax.set_ylabel("Venta Promedio (Millones S/.)")
+    ax.set_title("Distribución de Ventas por Número de Trabajadores")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
 
 # -----------------------------
 # MAIN
@@ -230,13 +222,13 @@ def main():
         plot_correlation(filtered_df)
 
     # -----------------------------
-    # Fila 3: Regresiones Lineal y Logística
+    # Fila 3: Regresión Lineal y Strip + Boxplot
     # -----------------------------
     col5, col6 = st.columns(2)
     with col5:
         plot_linear_regression(filtered_df)
     with col6:
-        plot_logistic_regression(filtered_df)
+        plot_strip_box(filtered_df)
 
 if __name__ == "__main__":
     main()
