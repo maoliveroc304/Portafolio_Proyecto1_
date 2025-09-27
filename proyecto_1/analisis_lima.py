@@ -151,7 +151,6 @@ def plot_linear_regression(df):
         st.warning("No hay datos para generar la regresión lineal.")
         return
 
-    st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
     show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
 
     df_plot = df.copy()
