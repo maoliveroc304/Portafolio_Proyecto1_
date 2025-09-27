@@ -132,26 +132,26 @@ def plot_linear_regression(df):
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
-def plot_boxplot(df):
-    st.subheader("📊 Distribución de Ventas por Número de Trabajadores (Boxplot)")
+def plot_caja_bigotes(df):
+    st.subheader("📊 Distribución de Ventas por Experiencia (Caja de Bigotes)")
     
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
     
-    # Crear bins de trabajadores para mejor visualización
-    bins = pd.qcut(df_plot['trabajador'], q=6, duplicates='drop')
-    df_plot['trabajador_bin'] = bins.astype(str)
+    # Crear bins de experiencia para mejor visualización
+    bins = pd.qcut(df_plot['experiencia'], q=6, duplicates='drop')
+    df_plot['experiencia_bin'] = bins.astype(str)
     
     fig, ax = plt.subplots(figsize=(6,4))
     sns.boxplot(
-        x='trabajador_bin',
+        x='experiencia_bin',
         y='venta_prom_millones',
         data=df_plot,
         palette="Set3"
     )
-    ax.set_xlabel("Número de Trabajadores (bins)")
+    ax.set_xlabel("Experiencia (años, bins)")
     ax.set_ylabel("Venta Promedio (Millones S/.)")
-    ax.set_title("Distribución de Ventas por Número de Trabajadores")
+    ax.set_title("Distribución de Ventas por Experiencia")
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
