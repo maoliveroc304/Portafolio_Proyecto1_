@@ -110,38 +110,84 @@ def plot_correlation(df):
     ax.set_title("Correlación entre Venta, Trabajadores y Experiencia")
     st.pyplot(fig)
 
+# -----------------------------
+# Regresión Lineal con checkbox
+# -----------------------------
 def plot_linear_regression(df):
     st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
-    fig, ax = plt.subplots(figsize=(6, 4))
+    show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
+    
+    fig, ax = plt.subplots(figsize=(6,4))
     sns.regplot(
         data=df,
         x="trabajador",
         y="venta_prom",
-        scatter_kws={"s":30, "alpha":0.5},
-        line_kws={"color":"red"}
+        scatter=show_points,         # puntos sólo si checkbox activado
+        line_kws={"color":"red"},
+        ci=95                        # banda de confianza
     )
     ax.set_xlabel("Número de Trabajadores")
     ax.set_ylabel("Venta Promedio (S/.)")
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
+# -----------------------------
+# Regresión Logística con Plotly (sin depender de statsmodels)
+# -----------------------------
+import plotly.graph_objects as go
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
 def plot_logistic_regression(df):
     st.subheader("📈 Regresión Logística: Probabilidad de Alta Venta")
+    
+    # Crear variable binaria
+    df = df.copy()
     df["alta_venta"] = (df["venta_prom"] > df["venta_prom"].median()).astype(int)
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.regplot(
-        data=df,
-        x="trabajador",
-        y="alta_venta",
-        logistic=True,
-        ci=None,
-        scatter_kws={"s":30, "alpha":0.5},
-        line_kws={"color":"green"}
+    
+    # Preparar datos
+    X = df[["trabajador"]].values
+    y = df["alta_venta"].values
+    
+    # Escalar
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Ajustar modelo logístico
+    model = LogisticRegression()
+    model.fit(X_scaled, y)
+    
+    # Generar predicciones para gráfico suave
+    x_range = np.linspace(X_scaled.min(), X_scaled.max(), 200).reshape(-1,1)
+    y_pred = model.predict_proba(x_range)[:,1]
+    
+    # Convertir rango a valores originales
+    x_range_orig = scaler.inverse_transform(x_range).flatten()
+    
+    # Gráfico Plotly
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df["trabajador"],
+        y=df["alta_venta"],
+        mode="markers",
+        name="Datos",
+        marker=dict(size=6, opacity=0.5)
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_range_orig,
+        y=y_pred,
+        mode="lines",
+        name="Regresión Logística",
+        line=dict(color="green")
+    ))
+    
+    fig.update_layout(
+        xaxis_title="Número de Trabajadores",
+        yaxis_title="Probabilidad de Alta Venta",
+        title="Regresión Logística: Alta Venta vs Trabajadores"
     )
-    ax.set_xlabel("Número de Trabajadores")
-    ax.set_ylabel("Probabilidad de Alta Venta")
-    ax.set_title("Regresión Logística: Alta Venta vs Trabajadores")
-    st.pyplot(fig)
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------------
 # MAIN
