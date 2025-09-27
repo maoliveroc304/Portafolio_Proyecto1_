@@ -256,4 +256,5 @@ def main():
 
     # ---------------- FOOTER ----------------
     st.markdown("---")
-    st.markdown("<div style='font-size:0.85rem; color:gray;'>© 2025 · Miguel Olivero · Todos
+    st.markdown("<div style='font-size:0.85rem; color:gray;'>© 2025 · Miguel Olivero · Todos los derechos reservados</div>", unsafe_allow_html=True)
+
