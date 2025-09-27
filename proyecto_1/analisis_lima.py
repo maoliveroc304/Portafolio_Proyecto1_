@@ -45,7 +45,7 @@ def normalize_text(s):
 # GRÁFICOS
 # -----------------------------
 def plot_scatter(df):
-    """Scatter plot con leyenda fija (no interactiva)."""
+    """Scatter plot con leyenda fija debajo de la gráfica."""
     promedios = df.groupby(['provincia', 'año'])[['venta_prom', 'trabajador', 'experiencia']].mean().reset_index()
     fig = px.scatter(
         promedios,
@@ -58,13 +58,21 @@ def plot_scatter(df):
         labels={"trabajador": "Promedio de Trabajadores", "venta_prom": "Promedio de Ventas (S/.)"},
         title="Relación entre Venta, Trabajadores y Experiencia"
     )
-    # Leyenda fija (no interactiva)
+    # Leyenda fija debajo de la gráfica
     fig.update_traces(showlegend=True)
     fig.update_layout(
         legend_title_text="Año",
-        legend=dict(itemsizing='constant'),
+        legend=dict(
+            orientation='h',  # Horizontal
+            y=-0.2,           # Ajusta posición vertical
+            x=0,
+            xanchor='left',
+            yanchor='top',
+            itemsizing='constant'
+        ),
         legend_itemclick=False,
-        legend_itemdoubleclick=False
+        legend_itemdoubleclick=False,
+        margin=dict(b=80)  # Aumenta margen inferior para la leyenda
     )
     st.plotly_chart(fig, use_container_width=True)
 
