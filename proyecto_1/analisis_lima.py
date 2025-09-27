@@ -148,24 +148,31 @@ def main():
     selected_provinces = st.multiselect("Selecciona las provincias a visualizar", all_provinces, default=all_provinces)
     filtered_df = filtered_df[filtered_df["provincia"].isin(selected_provinces)]
 
-    # -----------------------------
-    # Dibujar gráficos en 2 columnas
-    # -----------------------------
-    col1, col2 = st.columns(2)
+# -----------------------------
+# Fila 1: Scatter y Heatmap
+# -----------------------------
+col1, col2 = st.columns(2)
 
-    with col1:
-        st.subheader("📊 Relación entre Venta, Trabajadores y Experiencia")
-        plot_scatter(filtered_df)
+with col1:
+    st.subheader("📊 Relación entre Venta, Trabajadores y Experiencia")
+    plot_scatter(filtered_df)
 
-        st.subheader("📊 Comparación de Venta Promedio por Provincia")
-        plot_bars(filtered_df)
+with col2:
+    st.subheader("📊 Ventas Totales por Provincia")
+    plot_heatmap(filtered_df)
 
-    with col2:
-        st.subheader("📊 Ventas Totales por Provincia")
-        plot_heatmap(filtered_df)
+# -----------------------------
+# Fila 2: Barras y Correlación (misma altura)
+# -----------------------------
+col3, col4 = st.columns(2)
 
-        st.subheader("📊 Matriz de Correlación")
-        plot_correlation(filtered_df)
+with col3:
+    st.subheader("📊 Comparación de Venta Promedio por Provincia")
+    plot_bars(filtered_df)
+
+with col4:
+    st.subheader("📊 Matriz de Correlación")
+    plot_correlation(filtered_df)
 
 if __name__ == "__main__":
     main()
