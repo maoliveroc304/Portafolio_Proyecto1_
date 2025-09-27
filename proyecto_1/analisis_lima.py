@@ -138,11 +138,12 @@ def plot_caja_bigotes(df):
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
     
-    # Crear 4 bins de experiencia para mejor visualización
-    bins = pd.qcut(df_plot['experiencia'], q=4, duplicates='drop')
-    df_plot['experiencia_bin'] = bins.astype(str)
+    # Definir bins manuales de experiencia
+    bins = [0, 5, 10, 20, 30, 50, df_plot['experiencia'].max()]
+    labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
+    df_plot['experiencia_bin'] = pd.cut(df_plot['experiencia'], bins=bins, labels=labels, include_lowest=True)
     
-    fig, ax = plt.subplots(figsize=(10,5))
+    fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
         x='experiencia_bin',
         y='venta_prom_millones',
@@ -155,6 +156,7 @@ def plot_caja_bigotes(df):
     plt.xticks(rotation=30)
     plt.tight_layout()
     st.pyplot(fig)
+
 
 # -----------------------------
 # MAIN
