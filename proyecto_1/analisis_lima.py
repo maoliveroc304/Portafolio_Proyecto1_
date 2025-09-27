@@ -8,6 +8,9 @@ import seaborn as sns
 import numpy as np
 import unicodedata
 import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 import os
 
 # -----------------------------
@@ -110,9 +113,6 @@ def plot_correlation(df):
     ax.set_title("Correlación entre Venta, Trabajadores y Experiencia")
     st.pyplot(fig)
 
-# -----------------------------
-# Regresión Lineal con checkbox
-# -----------------------------
 def plot_linear_regression(df):
     st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
     show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
@@ -122,49 +122,35 @@ def plot_linear_regression(df):
         data=df,
         x="trabajador",
         y="venta_prom",
-        scatter=show_points,         # puntos sólo si checkbox activado
+        scatter=show_points,
         line_kws={"color":"red"},
-        ci=95                        # banda de confianza
+        ci=95
     )
     ax.set_xlabel("Número de Trabajadores")
     ax.set_ylabel("Venta Promedio (S/.)")
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
-# -----------------------------
-# Regresión Logística con Plotly (sin depender de statsmodels)
-# -----------------------------
-import plotly.graph_objects as go
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-
 def plot_logistic_regression(df):
     st.subheader("📈 Regresión Logística: Probabilidad de Alta Venta")
     
-    # Crear variable binaria
     df = df.copy()
     df["alta_venta"] = (df["venta_prom"] > df["venta_prom"].median()).astype(int)
     
-    # Preparar datos
     X = df[["trabajador"]].values
     y = df["alta_venta"].values
     
-    # Escalar
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Ajustar modelo logístico
     model = LogisticRegression()
     model.fit(X_scaled, y)
     
-    # Generar predicciones para gráfico suave
     x_range = np.linspace(X_scaled.min(), X_scaled.max(), 200).reshape(-1,1)
     y_pred = model.predict_proba(x_range)[:,1]
     
-    # Convertir rango a valores originales
     x_range_orig = scaler.inverse_transform(x_range).flatten()
     
-    # Gráfico Plotly
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["trabajador"],
