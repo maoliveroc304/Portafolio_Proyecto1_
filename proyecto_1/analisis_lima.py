@@ -90,16 +90,25 @@ def plot_bars(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_heatmap(df):
+    if df.empty:
+        st.warning("No hay datos disponibles para el heatmap. Selecciona al menos un año y una provincia.")
+        return
+
     ventas_totales = df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
     ventas_totales["venta_millones"] = ventas_totales["venta_prom"] / 1_000_000
     pivot = ventas_totales.pivot(index="provincia", columns="año", values="venta_millones")
-    
+
+    if pivot.empty:
+        st.warning("No hay datos para generar el heatmap después de pivotear.")
+        return
+
     fig, ax = plt.subplots(figsize=(6, 4))
     sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
     ax.set_title("Ventas Totales por Provincia (Millones de S/.)")
     ax.set_xlabel("Año")
     ax.set_ylabel("Provincia")
     st.pyplot(fig)
+
 
 def plot_correlation(df):
     corr_df = df[['venta_prom', 'trabajador', 'experiencia']]
