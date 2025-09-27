@@ -100,8 +100,7 @@ def plot_correlation(df):
 # MAIN
 # -----------------------------
 def main():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    data_folder = os.path.join(BASE_DIR, '..', 'data', 'proyecto_1')
+    data_folder = os.path.join('..', 'data', 'proyecto_1')
     
     # Rutas completas
     file_2022 = os.path.join(data_folder, 'GRAN_EMPRESA_2022_MANUFACTURA.csv')
