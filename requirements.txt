@@ -1,8 +1,6 @@
 streamlit
 pandas
-geopandas
-shapely
 matplotlib
-plotly
+seaborn
+numpy
 unidecode
-requests
