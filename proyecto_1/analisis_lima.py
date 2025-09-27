@@ -42,11 +42,19 @@ def normalize_text(s):
     return s
 
 # -----------------------------
-# FUNCIONES DE GRÁFICOS
+# FUNCIONES DE GRÁFICOS ROBUSTAS
 # -----------------------------
+
 def plot_scatter(df):
-    """Scatter plot con leyenda fija debajo de la gráfica."""
+    if df.empty:
+        st.warning("No hay datos para generar el scatter plot. Selecciona al menos un año y una provincia.")
+        return
+
     promedios = df.groupby(['provincia', 'año'])[['venta_prom', 'trabajador', 'experiencia']].mean().reset_index()
+    if promedios.empty:
+        st.warning("No hay datos promedio para generar el scatter plot.")
+        return
+
     fig = px.scatter(
         promedios,
         x="trabajador",
@@ -75,8 +83,17 @@ def plot_scatter(df):
     )
     st.plotly_chart(fig, use_container_width=True)
 
+
 def plot_bars(df):
+    if df.empty:
+        st.warning("No hay datos para generar el gráfico de barras.")
+        return
+
     ventas = df.groupby(['provincia', 'año'])['venta_prom'].mean().reset_index()
+    if ventas.empty:
+        st.warning("No hay datos promedio de venta para generar el gráfico de barras.")
+        return
+
     ventas["venta_millones"] = ventas["venta_prom"] / 1_000_000
     fig = px.bar(
         ventas,
@@ -89,15 +106,19 @@ def plot_bars(df):
     )
     st.plotly_chart(fig, use_container_width=True)
 
+
 def plot_heatmap(df):
     if df.empty:
-        st.warning("No hay datos disponibles para el heatmap. Selecciona al menos un año y una provincia.")
+        st.warning("No hay datos para generar el heatmap.")
         return
 
     ventas_totales = df.groupby(['provincia', 'año'])['venta_prom'].sum().reset_index()
+    if ventas_totales.empty:
+        st.warning("No hay datos de ventas totales para generar el heatmap.")
+        return
+
     ventas_totales["venta_millones"] = ventas_totales["venta_prom"] / 1_000_000
     pivot = ventas_totales.pivot(index="provincia", columns="año", values="venta_millones")
-
     if pivot.empty:
         st.warning("No hay datos para generar el heatmap después de pivotear.")
         return
@@ -111,22 +132,36 @@ def plot_heatmap(df):
 
 
 def plot_correlation(df):
+    if df.empty:
+        st.warning("No hay datos para generar la matriz de correlación.")
+        return
+
     corr_df = df[['venta_prom', 'trabajador', 'experiencia']]
+    if corr_df.empty:
+        st.warning("No hay datos válidos para calcular la correlación.")
+        return
+
     corr = corr_df.corr()
-    
     fig, ax = plt.subplots(figsize=(6, 4))
     sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
     ax.set_title("Correlación entre Venta, Trabajadores y Experiencia")
     st.pyplot(fig)
 
+
 def plot_linear_regression(df):
+    if df.empty:
+        st.warning("No hay datos para generar la regresión lineal.")
+        return
+
     st.subheader("📈 Regresión Lineal: Venta vs Trabajadores")
     show_points = st.checkbox("Mostrar puntos en la regresión lineal", value=False)
-    
-    # Convertir ventas a millones
+
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
-    
+    if df_plot.empty:
+        st.warning("No hay datos válidos para la regresión lineal.")
+        return
+
     fig, ax = plt.subplots(figsize=(6,4))
     sns.regplot(
         data=df_plot,
@@ -141,17 +176,20 @@ def plot_linear_regression(df):
     ax.set_title("Regresión Lineal: Venta vs Trabajadores")
     st.pyplot(fig)
 
+
 def plot_caja_bigotes(df):
+    if df.empty:
+        st.warning("No hay datos para generar el boxplot.")
+        return
+
     st.subheader("📊 Caja de Bigotes: Distribución de Ventas por Experiencia")
-    
-    # --- Campos de entrada de percentiles ---
+
     col1, col2 = st.columns(2)
     with col1:
         p_low = st.number_input("Percentil inferior (0-1)", value=0.01, step=0.01, format="%.2f")
     with col2:
         p_high = st.number_input("Percentil superior (0-1)", value=0.90, step=0.01, format="%.2f")
 
-    # --- Validación ---
     if not (0 <= p_low <= 1) or not (0 <= p_high <= 1):
         st.error("Los percentiles deben estar entre 0 y 1.")
         return
@@ -162,17 +200,23 @@ def plot_caja_bigotes(df):
     df_plot = df.copy()
     df_plot['venta_prom_millones'] = df_plot['venta_prom'] / 1_000_000
 
-    # --- Filtrar según percentiles ---
     lower = df_plot['venta_prom_millones'].quantile(p_low)
     upper = df_plot['venta_prom_millones'].quantile(p_high)
     df_filtered = df_plot[(df_plot['venta_prom_millones'] >= lower) & (df_plot['venta_prom_millones'] <= upper)]
 
-    # --- Bins manuales de experiencia ---
-    bins = [0, 5, 10, 20, 30, 50, df_filtered['experiencia'].max()]
+    if df_filtered.empty:
+        st.warning("No hay datos en los percentiles seleccionados.")
+        return
+
+    max_exp = df_filtered['experiencia'].max()
+    if pd.isna(max_exp) or max_exp == 0:
+        st.warning("No hay valores válidos de experiencia para graficar.")
+        return
+
+    bins = [0, 5, 10, 20, 30, 50, max_exp]
     labels = ["0-5","6-10","11-20","21-30","31-50","50+"]
     df_filtered['experiencia_bin'] = pd.cut(df_filtered['experiencia'], bins=bins, labels=labels, include_lowest=True)
-    
-    # --- Graficar ---
+
     fig, ax = plt.subplots(figsize=(12,6))
     sns.boxplot(
         y='experiencia_bin',
@@ -186,8 +230,8 @@ def plot_caja_bigotes(df):
     ax.set_title(f"Distribución de Ventas por Experiencia (Percentiles {p_low*100:.0f}%-{p_high*100:.0f}%)")
     plt.tight_layout()
     st.pyplot(fig)
-
     st.markdown("*Nota: Se han excluido valores extremadamente dispersos para mejorar la legibilidad.*")
+
 
 # -----------------------------
 # MAIN
