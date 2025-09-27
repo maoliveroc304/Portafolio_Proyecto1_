@@ -248,4 +248,9 @@ if __name__ == "__main__":
 
     # ---------------- FOOTER ----------------
     st.markdown("---")
-    st.markdown("<div style='font-size:0.85rem; color:gray;'>© 2025 · Miguel Olivero · Todos los derechos reservados</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='font-size:0.85rem; color:gray;'>
+    © 2025 · Miguel Olivero · Todos los derechos reservados · 
+    <a href='https://datosabiertos.gob.pe/dataset/desempe%C3%B1o-econ%C3%B3mico-de-las-grandes-empresas-manufactureras-ministerio-de-la-produccion' target='_blank' style='color:gray; text-decoration:underline;'>Fuentes</a>
+    </div>
+    """, unsafe_allow_html=True)
